@@ -82,6 +82,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 .badge {
   display: inline-block; padding: 2px 8px;
   border-radius: 99px; font-size: 0.7rem; font-weight: 600;
+  max-width: 100%; overflow-wrap: anywhere;
 }
 .b-blue   { background:#ebf8ff; color:#2b6cb0; }
 .b-purple { background:#faf5ff; color:#6b46c1; }
@@ -149,7 +150,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 }
 .pico-row:last-child { border-bottom:none; }
 .pk { color:#4a5568; white-space:nowrap; flex-shrink:0; }
-.pv { font-weight:600; color:#1a202c; text-align:right; font-size:0.78rem; }
+.pv { font-weight:600; color:#1a202c; text-align:right; font-size:0.78rem; overflow-wrap:anywhere; min-width:0; }
 .pv.nd { color:#cbd5e0; font-weight:400; font-style:italic; }
 .out-label { font-size:0.63rem; font-weight:800; color:#a0aec0; text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
 .med-big { font-size:1.25rem; font-weight:900; color:#276749; line-height:1; }
@@ -172,8 +173,62 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 .cl-notes { grid-column:1 / -1; font-size:0.72rem; color:#718096; }
 
 @media(max-width:700px) {
-  .pico { grid-template-columns:1fr 1fr; }
+  body { overflow-x:hidden; }
+  header {
+    display:block;
+    padding:16px 14px;
+  }
+  header h1 { font-size:1.18rem; line-height:1.25; }
+  header p { font-size:0.74rem; line-height:1.45; }
+  .filters {
+    padding:10px 12px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .filters label { display:none; }
+  .filters select {
+    width:100%;
+    min-width:0;
+    font-size:0.78rem;
+  }
+  .stats { padding:8px 12px; }
+  .cards { padding:12px 10px 28px; gap:12px; }
+  #dim-section, #support-section { margin:0 10px 14px !important; }
+  #dim-label, #support-label {
+    white-space:normal !important;
+    text-align:center;
+    line-height:1.35;
+  }
+  .card { border-radius:8px; }
+  .card-head {
+    display:block;
+    padding:12px 12px 10px;
+  }
+  .head-right {
+    text-align:left;
+    margin:8px 0 0;
+  }
+  .trial-name { font-size:1.05rem; line-height:1.25; overflow-wrap:anywhere; }
+  .meta { font-size:0.74rem; line-height:1.35; }
+  .info-banner { padding:7px 12px; line-height:1.45; }
+  .pico { grid-template-columns:1fr; }
+  .pico-col { padding:12px; border-right:none; border-bottom:1px solid #f0f4f8; }
+  .pico-col:last-child { border-bottom:none; }
+  .ic-col { border-right:none; border-bottom:1px solid #f0f4f8; }
+  .ic-col .pico-col { border-bottom:none; }
+  .ic-col .pico-col + .pico-col { border-top:1px solid #f0f4f8; }
+  .pico-row { align-items:flex-start; }
+  .pk { white-space:normal; }
+  .o-inner { grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 8px; }
+  .o-inner > div { min-width:0; }
+  .med-big { font-size:1.08rem; }
+  .med-ctrl, .hr-ann { overflow-wrap:anywhere; }
   .clinical { grid-template-columns:1fr; }
+}
+@media(max-width:390px) {
+  .filters { grid-template-columns:1fr; }
+  .o-inner { grid-template-columns:1fr; gap:10px; }
 }
 </style>
 </head>
@@ -189,13 +244,13 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 <div class="filters">
   <label>Histology</label>
   <select id="f-histo" onchange="applyFilters()">
-    <option value="">全部</option><option value="NSCLC (mixed)">NSCLC (mixed)</option>
+    <option value="">Histology 全部</option><option value="NSCLC (mixed)">NSCLC (mixed)</option>
 <option value="NSCLC (non-squamous)">NSCLC (non-squamous)</option>
 <option value="NSCLC (squamous)">NSCLC (squamous)</option>
   </select>
   <label>Biomarker</label>
   <select id="f-bio" onchange="applyFilters()">
-    <option value="">全部</option><option value="BRAF">BRAF</option>
+    <option value="">Biomarker 全部</option><option value="BRAF">BRAF</option>
 <option value="EGFR">EGFR</option>
 <option value="MET">MET</option>
 <option value="None (all-comers)">None (all-comers)</option>
@@ -207,7 +262,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
   </select>
   <label>Drug Class</label>
   <select id="f-drug" onchange="applyFilters()">
-    <option value="">全部</option><option value="Anti-PD-1">Anti-PD-1</option>
+    <option value="">Drug Class 全部</option><option value="Anti-PD-1">Anti-PD-1</option>
 <option value="Anti-PD-1 + Anti-CTLA-4">Anti-PD-1 + Anti-CTLA-4</option>
 <option value="Anti-PD-1 + Anti-CTLA-4 + Chemotherapy">Anti-PD-1 + Anti-CTLA-4 + Chemotherapy</option>
 <option value="Anti-PD-1 + Chemoradiotherapy">Anti-PD-1 + Chemoradiotherapy</option>
@@ -231,7 +286,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
   </select>
   <label>Treatment Line</label>
   <select id="f-line" onchange="applyFilters()">
-    <option value="">全部</option><option value="1L">1L</option>
+    <option value="">Treatment Line 全部</option><option value="1L">1L</option>
 <option value="2L">2L</option>
 <option value="2L+">2L+</option>
 <option value="CCRT">CCRT</option>
