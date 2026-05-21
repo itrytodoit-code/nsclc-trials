@@ -111,9 +111,9 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 .pmid-link:hover { text-decoration:underline; }
 .rel-pmid { font-size:0.68rem; color:#a0aec0; margin-top:2px; }
 .card-note-btn {
-  display:block; width:100%; margin-top:8px;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
   border:1px solid #bee3f8; background:#ebf8ff; color:#2b6cb0;
-  border-radius:7px; padding:6px 10px; font-size:0.76rem; font-weight:800;
+  border-radius:7px; padding:7px 10px; font-size:0.76rem; font-weight:800;
   cursor:pointer;
 }
 .card-note-btn:hover { background:#bee3f8; }
@@ -237,13 +237,14 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 .annot-md { font-size:.82rem; color:#2d3748; line-height:1.55; }
 .annot-md code { background:#edf2f7; border-radius:4px; padding:1px 4px; }
 .annot-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
-.card-annots { padding:8px 18px; border-top:1px solid #edf2f7; background:#fffaf0; }
-.card-annots-title { font-size:.72rem; font-weight:800; color:#975a16; margin-bottom:6px; }
+.card-annots { padding:10px 18px; border-top:1px solid #edf2f7; background:#fffaf0; }
+.card-annots-head { display:flex; align-items:center; gap:8px; justify-content:space-between; margin-bottom:8px; }
+.card-annots-title { font-size:.76rem; font-weight:800; color:#975a16; }
 .card-annot-chip {
   display:block; border:1px solid #f6ad55; border-radius:7px;
   padding:7px 8px; background:#fff; color:#4a5568; font-size:.76rem; line-height:1.45; margin-top:6px;
+  text-align:left; width:100%; cursor:pointer;
 }
-.annot-import { display:none; }
 
 @media(max-width:700px) {
   body { overflow-x:hidden; }
@@ -302,6 +303,9 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
   .annot-toolbar { padding:8px 10px; gap:6px; }
   .annot-btn { padding:6px 8px; }
   .annot-count { font-size:.72rem; }
+  .card-annots { padding:10px 12px; }
+  .card-annots-head { align-items:stretch; flex-direction:column; }
+  .card-note-btn { width:100%; }
   .annot-drawer { width:100vw; }
 }
 @media(max-width:390px) {
@@ -362,16 +366,11 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 </div>
 <div class="annot-toolbar">
   <span class="annot-count" id="annot-count">備註 0</span>
-  <span class="annot-save-status" id="annot-save-status">尚未存檔</span>
   <button class="annot-btn" type="button" onclick="openAnnotationDrawer()">備註</button>
-  <button class="annot-btn" type="button" onclick="saveAnnotationsMarkdownFile()">存成 Markdown</button>
-  <button class="annot-btn" type="button" onclick="showAnnotationsMarkdown()">顯示 Markdown</button>
-  <button class="annot-btn" type="button" onclick="exportAnnotations()">匯出</button>
-  <button class="annot-btn" type="button" onclick="document.getElementById('annot-import').click()">匯入</button>
-  <input class="annot-import" id="annot-import" type="file" accept="application/json,.json" onchange="importAnnotations(event)">
+  <button class="annot-btn" type="button" onclick="copyAnnotationsMarkdown()">複製 Markdown</button>
 </div>
 <div class="stats" id="stats"></div>
-<div class="mobile-note-banner">手機加註版 2026/05/21：每張卡片都有「加註」按鈕；若看不到這行，代表你正在看舊版或快取。</div>
+<div class="mobile-note-banner">手機加註版 2026/05/21：每張卡片底部都有「新增本卡備註」；若看不到，代表你正在看舊版或快取。</div>
 <div class="cards" id="cards-active"></div>
 
 <!-- 折疊區 A：歷史 / 已取代 -->
@@ -409,7 +408,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 <aside class="annot-drawer" id="annot-drawer" aria-hidden="true">
   <div class="annot-head">
     <h2>頁面備註</h2>
-    <button class="annot-btn" type="button" onclick="copyAnnotationsMarkdown()">複製 Markdown</button>
+    <button class="annot-btn" type="button" onclick="showAnnotationsMarkdown()">顯示 Markdown</button>
     <button class="annot-btn" type="button" onclick="closeAnnotationDrawer()">關閉</button>
   </div>
   <div class="annot-body">
@@ -587,7 +586,6 @@ function renderCard(d) {
     + rtagHtml
     + '<a class="pmid-link" href="https://pubmed.ncbi.nlm.nih.gov/' + d.pmid + '/" target="_blank">PMID ' + d.pmid + '</a>'
     + relHtml
-    + '<button class="card-note-btn" type="button" onclick="startAnnotationForCard(this)">加註</button>'
     + '</div></div>'
     + banner
     + '<div class="pico">' + colP + colIC + colO + '</div>'
@@ -597,13 +595,14 @@ function renderCard(d) {
     + '<div class="cl-item"><span class="cl-label">Limitation：</span>' + (d.limitation||'—') + '</div>'
     + notesHtml
     + '</div>'
-    + '<div class="card-annots" data-annot-for="' + d.id + '" style="display:none"></div>'
+    + '<div class="card-annots" data-annot-for="' + d.id + '"></div>'
     + '</div>';
 }
 
 const ANNOT_KEY = 'nsclc-trials-annotations-v1';
 var annotations = [];
 var pendingAnnotation = null;
+var lastSelectionContext = null;
 
 function escapeHtml(text) {
   return String(text || '').replace(/[&<>"']/g, function(ch) {
@@ -634,20 +633,27 @@ function persistAnnotations() {
 }
 
 function annotationMarkdown() {
+  var byTrial = {};
+  annotations.forEach(function(a) {
+    var key = a.trialId || a.trialName || 'unknown';
+    if (!byTrial[key]) byTrial[key] = [];
+    byTrial[key].push(a);
+  });
   var lines = [
-    '# NSCLC Trials HTML 備註',
+    '# NSCLC Trials 修正備註',
     '',
-    '產生時間：' + new Date().toLocaleString(),
-    '來源頁面：' + location.href,
+    '- 產生時間：' + new Date().toLocaleString(),
+    '- 來源頁面：' + location.href,
+    '- 備註總數：' + annotations.length,
     '',
     '## 給 AI 的處理規則',
     '',
-    '1. 請逐條核對備註指向的 trial、PMID、反白內容與建議。',
-    '2. 確認後再修改 `lung_cancer.db`，不要只改 HTML。',
-    '3. 修改資料庫後請重新執行 `generate_html.py` 產生新版 HTML。',
-    '4. 若備註不明確，請先保留並詢問使用者。',
+    '1. 逐條核對備註指向的 trial、PMID、反白內容與使用者建議。',
+    '2. 確認後修改 `lung_cancer.db`，不要只改 `nsclc_trials.html`。',
+    '3. 修改資料庫後執行 `generate_html.py` 重新產生本機 HTML 與發布用 `index.html`。',
+    '4. 若備註不明確，先保留原資料並詢問使用者。',
     '',
-    '## 備註列表',
+    '## 備註摘要',
     ''
   ];
   if (!annotations.length) {
@@ -655,16 +661,41 @@ function annotationMarkdown() {
     lines.push('');
     return lines.join('\n');
   }
-  annotations.forEach(function(a, i) {
-    lines.push('## ' + (i + 1) + '. ' + (a.trialName || '未指定 trial'));
+  Object.keys(byTrial).forEach(function(key) {
+    var group = byTrial[key];
+    var first = group[0] || {};
+    lines.push('- ' + (first.trialName || '未指定 trial') + '：' + group.length + ' 則');
+  });
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('## 詳細備註');
+  lines.push('');
+  Object.keys(byTrial).forEach(function(key) {
+    var group = byTrial[key];
+    var first = group[0] || {};
+    lines.push('### ' + (first.trialName || '未指定 trial'));
     lines.push('');
-    lines.push('- Trial ID：' + (a.trialId || ''));
-    lines.push('- PMID：' + (a.pmid || ''));
-    lines.push('- 建立時間：' + (a.createdAt || ''));
+    lines.push('| 欄位 | 內容 |');
+    lines.push('|---|---|');
+    lines.push('| Trial ID | ' + (first.trialId || '') + ' |');
+    lines.push('| PMID | ' + (first.pmid || '') + ' |');
     lines.push('');
-    lines.push('> ' + (a.quote || '').replace(/\n/g, '\n> '));
-    lines.push('');
-    lines.push(a.note || '');
+    group.forEach(function(a, i) {
+      lines.push('#### 本卡備註 ' + (i + 1));
+      lines.push('');
+      lines.push('- 建立時間：' + (a.createdAt || ''));
+      lines.push('- 反白來源：' + (a.quote && a.quote !== '整張卡片備註' ? '是' : '否，整張卡片備註'));
+      lines.push('');
+      lines.push('**反白／定位內容**');
+      lines.push('');
+      lines.push('> ' + (a.quote || '').replace(/\n/g, '\n> '));
+      lines.push('');
+      lines.push('**使用者建議**');
+      lines.push('');
+      lines.push(a.note || '');
+      lines.push('');
+    });
     lines.push('');
   });
   return lines.join('\n');
@@ -689,19 +720,18 @@ function renderAnnotations() {
   document.querySelectorAll('.card-annots').forEach(function(el) {
     var id = el.dataset.annotFor;
     var mine = annotations.filter(function(a) { return String(a.trialId) === String(id); });
-    if (!mine.length) {
-      el.style.display = 'none';
-      el.innerHTML = '';
-      return;
-    }
     el.style.display = '';
-    el.innerHTML = '<div class="card-annots-title">本卡備註 ' + mine.length + '</div>'
-      + mine.map(function(a) {
+    el.innerHTML = '<div class="card-annots-head">'
+      + '<div class="card-annots-title">本卡備註 ' + mine.length + '</div>'
+      + '<button class="card-note-btn" type="button" onclick="startAnnotationForCard(this)">新增本卡備註</button>'
+      + '</div>'
+      + (mine.length ? mine.map(function(a, idx) {
         return '<button class="card-annot-chip" type="button" onclick="openAnnotationDrawer(\'' + a.id + '\')">'
-          + '<strong>' + escapeHtml(a.quote || '').slice(0, 80) + '</strong><br>'
+          + '<strong>本卡備註 ' + (idx + 1) + '</strong><br>'
+          + '<span class="annot-quote">' + escapeHtml(a.quote || '').slice(0, 100) + '</span><br>'
           + markdownToHtml((a.note || '').slice(0, 160))
           + '</button>';
-      }).join('');
+      }).join('') : '<div class="annot-selected">尚無本卡備註。可先反白某段文字後新增，或直接新增整張卡片備註。</div>');
   });
 }
 
@@ -745,6 +775,7 @@ function getSelectionContext() {
 function startAnnotationFromSelection() {
   var ctx = getSelectionContext();
   if (!ctx) return;
+  lastSelectionContext = ctx;
   pendingAnnotation = {
     id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
     createdAt: new Date().toISOString(),
@@ -765,7 +796,7 @@ function startAnnotationFromSelection() {
 function startAnnotationForCard(button) {
   var card = button.closest('.card');
   if (!card) return;
-  var selection = getSelectionContext();
+  var selection = getSelectionContext() || lastSelectionContext;
   var trialName = card.dataset.trialName || '';
   var pmidText = (card.querySelector('.pmid-link') || { textContent: '' }).textContent.replace('PMID','').trim();
   var quote = selection && String(selection.trialId) === String(card.dataset.trialId)
@@ -932,6 +963,7 @@ function updateFloatingAnnotButton() {
     btn.style.display = 'none';
     return;
   }
+  lastSelectionContext = ctx;
   var sel = window.getSelection();
   var rect = sel.getRangeAt(0).getBoundingClientRect();
   btn.style.left = Math.min(window.innerWidth - 84, Math.max(12, rect.left + rect.width / 2 - 32)) + 'px';
