@@ -378,7 +378,6 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 <div class="annot-toolbar">
   <span class="annot-count" id="annot-count">備註 0</span>
   <button class="annot-btn" type="button" onclick="openAnnotationDrawer()">備註</button>
-  <button class="annot-btn" type="button" onclick="copyAnnotationsMarkdown()">複製 Markdown</button>
 </div>
 <div class="stats" id="stats"></div>
 <div class="mobile-note-banner">手機加註版 2026/05/21：每張卡片底部都有「新增本卡備註」；若看不到，代表你正在看舊版或快取。</div>
@@ -915,20 +914,6 @@ function showAnnotationsMarkdown() {
   openAnnotationDrawer();
   output.focus();
   output.select();
-}
-
-function copyAnnotationsMarkdown() {
-  var md = annotationMarkdown();
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(md);
-  } else {
-    var box = document.createElement('textarea');
-    box.value = md;
-    document.body.appendChild(box);
-    box.select();
-    document.execCommand('copy');
-    document.body.removeChild(box);
-  }
 }
 
 function updateFloatingAnnotButton() {
