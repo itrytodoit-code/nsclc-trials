@@ -117,6 +117,10 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
   cursor:pointer;
 }
 .card-note-btn:hover { background:#bee3f8; }
+.card-note-btn-empty {
+  background:#f7fafc; border-color:#e2e8f0; color:#4a5568;
+}
+.card-note-btn-empty:hover { background:#edf2f7; }
 
 /* 橫幅（已取代 / 有更新）*/
 .info-banner {
@@ -237,7 +241,14 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
 .annot-md { font-size:.82rem; color:#2d3748; line-height:1.55; }
 .annot-md code { background:#edf2f7; border-radius:4px; padding:1px 4px; }
 .annot-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
-.card-annots { padding:10px 18px; border-top:1px solid #edf2f7; background:#fffaf0; }
+.annot-highlight {
+  background:#fff3a3;
+  box-shadow:0 0 0 2px rgba(236,201,75,.34);
+  border-radius:3px;
+  padding:0 1px;
+  cursor:pointer;
+}
+.card-annots { display:none; padding:10px 18px; border-top:1px solid #edf2f7; background:#fffaf0; }
 .card-annots-head { display:flex; align-items:center; gap:8px; justify-content:space-between; margin-bottom:8px; }
 .card-annots-title { font-size:.76rem; font-weight:800; color:#975a16; }
 .card-annot-chip {
@@ -303,7 +314,7 @@ header p  { font-size: 0.8rem; opacity: 0.7; margin-top: 3px; }
   .annot-toolbar { padding:8px 10px; gap:6px; }
   .annot-btn { padding:6px 8px; }
   .annot-count { font-size:.72rem; }
-  .card-annots { padding:10px 12px; }
+  .card-annots { display:block; padding:8px 12px 10px; }
   .card-annots-head { align-items:stretch; flex-direction:column; }
   .card-note-btn { width:100%; }
   .annot-drawer { width:100vw; }
@@ -632,6 +643,52 @@ function persistAnnotations() {
   renderAnnotations();
 }
 
+function clearHighlights(card) {
+  card.querySelectorAll('.annot-highlight').forEach(function(span) {
+    var text = document.createTextNode(span.textContent);
+    span.replaceWith(text);
+  });
+  card.normalize();
+}
+
+function shouldSkipHighlightNode(node) {
+  var parent = node.parentElement;
+  return !parent || parent.closest('.card-annots, .annot-drawer, button, a, script, style, textarea');
+}
+
+function highlightTextInCard(card, annotation) {
+  var quote = (annotation.quote || '').trim();
+  if (!quote || quote === '整張卡片備註') return;
+  var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT, {
+    acceptNode: function(node) {
+      if (shouldSkipHighlightNode(node)) return NodeFilter.FILTER_REJECT;
+      return node.nodeValue.indexOf(quote) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    }
+  });
+  var node = walker.nextNode();
+  if (!node) return;
+  var idx = node.nodeValue.indexOf(quote);
+  var range = document.createRange();
+  range.setStart(node, idx);
+  range.setEnd(node, idx + quote.length);
+  var span = document.createElement('span');
+  span.className = 'annot-highlight';
+  span.dataset.annotId = annotation.id;
+  span.title = annotation.note || '備註';
+  span.onclick = function() { openAnnotationDrawer(annotation.id); };
+  range.surroundContents(span);
+}
+
+function renderHighlights() {
+  document.querySelectorAll('.card').forEach(function(card) {
+    clearHighlights(card);
+    var id = card.dataset.trialId;
+    annotations
+      .filter(function(a) { return String(a.trialId) === String(id); })
+      .forEach(function(a) { highlightTextInCard(card, a); });
+  });
+}
+
 function annotationMarkdown() {
   var byTrial = {};
   annotations.forEach(function(a) {
@@ -721,18 +778,23 @@ function renderAnnotations() {
     var id = el.dataset.annotFor;
     var mine = annotations.filter(function(a) { return String(a.trialId) === String(id); });
     el.style.display = '';
+    if (!mine.length) {
+      el.innerHTML = '<button class="card-note-btn card-note-btn-empty" type="button" onclick="startAnnotationForCard(this)">新增本卡備註</button>';
+      return;
+    }
     el.innerHTML = '<div class="card-annots-head">'
       + '<div class="card-annots-title">本卡備註 ' + mine.length + '</div>'
-      + '<button class="card-note-btn" type="button" onclick="startAnnotationForCard(this)">新增本卡備註</button>'
+      + '<button class="card-note-btn" type="button" onclick="startAnnotationForCard(this)">再加一則</button>'
       + '</div>'
-      + (mine.length ? mine.map(function(a, idx) {
+      + mine.map(function(a, idx) {
         return '<button class="card-annot-chip" type="button" onclick="openAnnotationDrawer(\'' + a.id + '\')">'
           + '<strong>本卡備註 ' + (idx + 1) + '</strong><br>'
           + '<span class="annot-quote">' + escapeHtml(a.quote || '').slice(0, 100) + '</span><br>'
           + markdownToHtml((a.note || '').slice(0, 160))
           + '</button>';
-      }).join('') : '<div class="annot-selected">尚無本卡備註。可先反白某段文字後新增，或直接新增整張卡片備註。</div>');
+      }).join('');
   });
+  renderHighlights();
 }
 
 function openAnnotationDrawer(id) {
@@ -845,71 +907,6 @@ function deleteAnnotation(id) {
   persistAnnotations();
 }
 
-function exportAnnotations() {
-  var payload = {
-    source: 'nsclc_trials.html',
-    exportedAt: new Date().toISOString(),
-    annotations: annotations
-  };
-  var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'nsclc_trials_annotations_' + new Date().toISOString().slice(0,10) + '.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function annotationFilename() {
-  var d = new Date();
-  var pad = function(n) { return String(n).padStart(2, '0'); };
-  return 'nsclc_trials_notes_'
-    + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '_'
-    + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + '.md';
-}
-
-function downloadTextFile(filename, text, mime) {
-  var blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-async function saveAnnotationsMarkdownFile() {
-  var status = document.getElementById('annot-save-status');
-  if (!annotations.length) {
-    status.textContent = '沒有備註可存';
-    status.className = 'annot-save-status err';
-    return;
-  }
-  var filename = annotationFilename();
-  var md = annotationMarkdown();
-  try {
-    if (navigator.canShare && navigator.share) {
-      var file = new File([md], filename, {type: 'text/markdown'});
-      if (navigator.canShare({files: [file]})) {
-        await navigator.share({
-          files: [file],
-          title: 'NSCLC Trials 備註',
-          text: '請存到 OneDrive 的 lung_cancer_trials/annotations 資料夾'
-        });
-        status.textContent = '已開啟分享：' + filename;
-        status.className = 'annot-save-status ok';
-        return;
-      }
-    }
-    downloadTextFile(filename, md, 'text/markdown;charset=utf-8');
-    status.textContent = '已產生：' + filename;
-    status.className = 'annot-save-status ok';
-  } catch(e) {
-    downloadTextFile(filename, md, 'text/markdown;charset=utf-8');
-    status.textContent = '已改用下載：' + filename;
-    status.className = 'annot-save-status ok';
-    console.warn(e);
-  }
-}
-
 function showAnnotationsMarkdown() {
   var outputWrap = document.getElementById('annot-output-wrap');
   var output = document.getElementById('annot-output');
@@ -918,28 +915,6 @@ function showAnnotationsMarkdown() {
   openAnnotationDrawer();
   output.focus();
   output.select();
-}
-
-function importAnnotations(event) {
-  var file = event.target.files && event.target.files[0];
-  if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function() {
-    try {
-      var parsed = JSON.parse(reader.result);
-      var incoming = Array.isArray(parsed) ? parsed : (parsed.annotations || []);
-      var byId = {};
-      annotations.concat(incoming).forEach(function(a) {
-        if (a && a.id) byId[a.id] = a;
-      });
-      annotations = Object.keys(byId).map(function(k) { return byId[k]; });
-      persistAnnotations();
-    } catch(e) {
-      alert('匯入失敗：JSON 格式不正確');
-    }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
 }
 
 function copyAnnotationsMarkdown() {
